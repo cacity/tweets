@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}添加订阅源 - Twitter RSS订阅管理器{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>添加RSS订阅源
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="addFeedForm">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">RSS URL <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-link-45deg"></i>
+                            </span>
+                            <input type="url" class="form-control" id="url" name="url" 
+                                   value="{{ url or '' }}" placeholder="https://example.com/rss.xml" required>
+                            <button type="button" class="btn btn-outline-secondary" id="testBtn">
+                                <i class="bi bi-check-circle me-1"></i>测试
+                            </button>
+                        </div>
+                        <div class="form-text">输入RSS订阅源的完整URL地址</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">自定义标题</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-tag"></i>
+                            </span>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ title or '' }}" placeholder="留空将自动获取RSS源标题">
+                        </div>
+                    </div>
+                    
+                    <!-- 测试结果显示区域 -->
+                    <div id="testResult" class="mb-3" style="display: none;"></div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill" id="submitBtn">
+                            <i class="bi bi-plus-circle me-1"></i>添加订阅源
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>取消
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 示例RSS源 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb me-2"></i>示例RSS订阅源
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">以下是一些可用的RSS订阅源示例：</p>
+                <div class="row">
+                    <div class="col-12 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                            <div>
+                                <strong>BBC News</strong>
+                                <br><small class="text-muted">http://feeds.bbci.co.uk/news/rss.xml</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="fillExample('http://feeds.bbci.co.uk/news/rss.xml', 'BBC News')">
+                                使用
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                            <div>
+                                <strong>TechCrunch</strong>
+                                <br><small class="text-muted">https://techcrunch.com/feed/</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="fillExample('https://techcrunch.com/feed/', 'TechCrunch')">
+                                使用
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                            <div>
+                                <strong>Hacker News</strong>
+                                <br><small class="text-muted">https://hnrss.org/frontpage</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="fillExample('https://hnrss.org/frontpage', 'Hacker News')">
+                                使用
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>提示：</strong>对于Twitter RSS，建议使用第三方服务如 Nitter 或 xgo.ing API。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let testResultShown = false;
+
+document.getElementById('testBtn').addEventListener('click', function() {
+    const url = document.getElementById('url').value.trim();
+    const button = this;
+    const originalText = button.innerHTML;
+    
+    if (!url) {
+        showToast('请先输入RSS URL', 'error');
+        return;
+    }
+    
+    button.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1"></i>测试中...';
+    button.disabled = true;
+    
+    fetch('/api/test_feed', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const resultDiv = document.getElementById('testResult');
+        resultDiv.style.display = 'block';
+        
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong>测试成功！</strong> ${data.message}
+                    ${data.title ? '<br><small>检测到标题: ' + data.title + '</small>' : ''}
+                </div>
+            `;
+            
+            // 如果检测到标题且用户没有输入标题，自动填充
+            const titleInput = document.getElementById('title');
+            if (data.title && !titleInput.value) {
+                titleInput.value = data.title;
+            }
+            
+            // 启用提交按钮
+            document.getElementById('submitBtn').disabled = false;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>测试失败：</strong> ${data.message}
+                </div>
+            `;
+        }
+        testResultShown = true;
+    })
+    .catch(error => {
+        const resultDiv = document.getElementById('testResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>测试失败：</strong> ${error.message}
+            </div>
+        `;
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+});
+
+// 表单提交处理
+document.getElementById('addFeedForm').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1"></i>添加中...';
+    submitBtn.disabled = true;
+});
+
+// URL输入变化时重置测试结果
+document.getElementById('url').addEventListener('input', function() {
+    if (testResultShown) {
+        document.getElementById('testResult').style.display = 'none';
+        testResultShown = false;
+    }
+});
+
+// 填充示例数据
+function fillExample(url, title) {
+    document.getElementById('url').value = url;
+    document.getElementById('title').value = title;
+    
+    // 隐藏测试结果
+    document.getElementById('testResult').style.display = 'none';
+    testResultShown = false;
+    
+    showToast('已填充示例数据，可以点击测试验证', 'info');
+}
+
+// 添加旋转动画
+const style = document.createElement('style');
+style.textContent = `
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

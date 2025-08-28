@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block title %}{{ feed.title }} - Twitter RSS订阅管理器{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 返回按钮和标题 -->
+    <div class="col-12 mb-4">
+        <div class="d-flex align-items-center mb-3">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left me-1"></i>返回
+            </a>
+            <div class="flex-grow-1">
+                <h1 class="display-6 text-primary mb-1">{{ feed.title }}</h1>
+                <div class="d-flex align-items-center text-muted">
+                    <i class="bi bi-link-45deg me-1"></i>
+                    <a href="{{ feed.url }}" target="_blank" class="text-decoration-none text-muted me-3">
+                        {{ feed.url }}
+                    </a>
+                    <span class="badge bg-primary">{{ feed.items|length }} 条目</span>
+                    {% if feed.last_updated %}
+                    <span class="ms-3">
+                        <i class="bi bi-clock me-1"></i>
+                        最后更新: {{ feed.last_updated|format_datetime }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <button class="btn btn-success" onclick="refreshFeed('{{ feed.url }}')">
+                <i class="bi bi-arrow-clockwise me-1"></i>刷新
+            </button>
+        </div>
+        
+        {% if feed.description %}
+        <div class="alert alert-info border-0">
+            <i class="bi bi-info-circle me-2"></i>{{ feed.description }}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if feed.items %}
+        <!-- RSS条目列表 -->
+        <div class="col-12">
+            <!-- 布局选择器 -->
+            <div class="d-flex justify-content-end mb-3">
+                <div class="btn-group" role="group" aria-label="布局选择">
+                    <input type="radio" class="btn-check" name="layout" id="layout-single" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="layout-single">
+                        <i class="bi bi-list me-1"></i>单列
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="layout" id="layout-narrow" autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm" for="layout-narrow">
+                        <i class="bi bi-layout-text-sidebar me-1"></i>紧凑
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="layout" id="layout-two-column" autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm" for="layout-two-column">
+                        <i class="bi bi-columns me-1"></i>双列
+                    </label>
+                </div>
+            </div>
+            
+            <!-- 调试按钮（仅开发使用） -->
+            <div class="d-flex justify-content-center mb-3" style="display: none !important;" id="debug-controls">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-warning" onclick="testLayout('single')">测试单列</button>
+                    <button type="button" class="btn btn-warning" onclick="testLayout('narrow')">测试紧凑</button>
+                    <button type="button" class="btn btn-warning" onclick="testLayout('two-column')">测试双列</button>
+                    <button type="button" class="btn btn-info" onclick="showDebugInfo()">显示信息</button>
+                </div>
+            </div>
+            
+            <!-- 条目容器 -->
+            <div id="items-container" class="row">
+                {% for item in feed.items %}
+                <div class="item-wrapper col-12 mb-4">
+                    <article class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <!-- 条目标题 -->
+                            <h3 class="card-title mb-3">
+                                <a href="{{ url_for('view_item', feed_url=feed.url, item_guid=item.guid) }}" 
+                                   class="text-decoration-none text-dark title-link">
+                                    {{ item.title }}
+                                </a>
+                            </h3>
+                            
+                            <!-- 元信息 -->
+                            <div class="d-flex align-items-center text-muted mb-3 flex-wrap">
+                                {% if item.author %}
+                                <span class="me-3 mb-1">
+                                    <i class="bi bi-person me-1"></i>{{ item.author }}
+                                </span>
+                                {% endif %}
+                                {% if item.published %}
+                                <span class="me-3 mb-1">
+                                    <i class="bi bi-calendar3 me-1"></i>{{ item.published|format_datetime }}
+                                </span>
+                                {% endif %}
+                                {% if item.link %}
+                                <a href="{{ item.link }}" target="_blank" class="text-decoration-none me-3 mb-1">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>原文链接
+                                </a>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- 内容摘要 -->
+                            {% if item.description %}
+                            <div class="content-preview">
+                                {% set cleaned_content = item.description|clean_html %}
+                                {% if cleaned_content.strip() %}
+                                <div class="text-muted mb-3 lh-lg content-text">
+                                    {{ cleaned_content[:300] + "..." if cleaned_content|length > 300 else cleaned_content }}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- 检查是否包含图片 -->
+                                {% if '<img' in item.description %}
+                                <div class="mb-3">
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-image me-1"></i>包含图片
+                                    </span>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- 如果内容很短且没有有意义的文本，显示提示 -->
+                                {% if not cleaned_content.strip() and item.description %}
+                                <div class="text-muted mb-3">
+                                    <i class="bi bi-file-richtext me-1"></i>
+                                    此条目包含富媒体内容，点击查看详细内容
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <!-- 操作按钮 -->
+                            <div class="d-flex gap-2 mt-auto">
+                                <a href="{{ url_for('view_item', feed_url=feed.url, item_guid=item.guid) }}" 
+                                   class="btn btn-primary btn-sm">
+                                    <i class="bi bi-eye me-1"></i>查看详细内容
+                                </a>
+                                {% if item.link %}
+                                <a href="{{ item.link }}" target="_blank" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>打开原文
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <!-- 空状态 -->
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+                <h3 class="text-muted mt-3">此订阅源暂无内容</h3>
+                <p class="text-muted mb-4">尝试刷新订阅源获取最新内容</p>
+                <button class="btn btn-primary" onclick="refreshFeed('{{ feed.url }}')">
+                    <i class="bi bi-arrow-clockwise me-2"></i>刷新订阅源
+                </button>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function refreshFeed(url) {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1"></i>刷新中...';
+    button.disabled = true;
+    
+    fetch(`/api/refresh_feed/${encodeURIComponent(url)}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('刷新成功', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('刷新失败: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('刷新失败: ' + error.message, 'error');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// 添加旋转动画和布局切换功能
+const style = document.createElement('style');
+style.textContent = `
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 基础布局样式 */
+.content-preview {
+    min-height: 50px;
+    position: relative;
+}
+.content-preview .text-muted {
+    word-wrap: break-word;
+    word-break: break-word;
+    line-height: 1.6;
+}
+.content-preview img {
+    display: none;
+}
+.badge {
+    font-size: 0.75em;
+}
+
+/* 布局容器 */
+#items-container {
+    transition: all 0.3s ease;
+}
+
+/* 单列布局（默认） */
+body .layout-single .item-wrapper {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
+
+/* 紧凑布局 */
+body .layout-narrow #items-container {
+    max-width: 60% !important;
+    margin: 0 auto !important;
+}
+body .layout-narrow .item-wrapper {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
+
+/* 双列布局 */
+body .layout-two-column .item-wrapper {
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+/* 等高卡片 */
+.item-wrapper .card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #e1e8ed;
+}
+.item-wrapper .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #1da1f2;
+}
+.item-wrapper .card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.item-wrapper .content-preview {
+    flex-grow: 1;
+}
+
+/* 标题样式 */
+.title-link {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #0f1419 !important;
+    transition: color 0.2s ease;
+}
+.title-link:hover {
+    color: #1da1f2 !important;
+    text-decoration: none !important;
+}
+
+/* 内容文本 */
+.content-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #536471;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+}
+
+/* 布局切换按钮 */
+.btn-group .btn-check:checked + .btn {
+    background-color: #1da1f2 !important;
+    border-color: #1da1f2 !important;
+    color: white !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 992px) {
+    body .layout-two-column .item-wrapper {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+    body .layout-narrow #items-container {
+        max-width: 80% !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .content-preview .text-muted {
+        font-size: 0.9em;
+        line-height: 1.5;
+    }
+    body .layout-narrow #items-container {
+        max-width: 95% !important;
+    }
+    .btn-group {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1400px) {
+    body .layout-two-column .content-text {
+        -webkit-line-clamp: 3;
+    }
+}
+`;
+document.head.appendChild(style);
+
+// 全局布局切换函数
+function applyLayoutDirect(layoutType) {
+    console.log('直接应用布局:', layoutType);
+    const container = document.getElementById('items-container');
+    if (!container) {
+        console.error('未找到容器元素');
+        return;
+    }
+    
+    const items = container.querySelectorAll('.item-wrapper');
+    console.log('找到条目数量:', items.length);
+    
+    // 保存用户偏好
+    localStorage.setItem('feedLayoutPreference', layoutType);
+    
+    // 重置样式
+    container.removeAttribute('style');
+    items.forEach(item => item.removeAttribute('style'));
+    
+    // 应用布局
+    if (layoutType === 'narrow') {
+        console.log('应用紧凑布局 - 60%宽度');
+        container.style.cssText = 'max-width: 60% !important; margin: 0 auto !important; background-color: #fffacd;';
+        items.forEach(item => {
+            item.style.cssText = 'flex: 0 0 100% !important; max-width: 100% !important;';
+        });
+    } else if (layoutType === 'two-column') {
+        console.log('应用双列布局 - 50% x 2');
+        items.forEach((item, index) => {
+            item.style.cssText = 'flex: 0 0 50% !important; max-width: 50% !important; padding-left: 8px !important; padding-right: 8px !important;';
+        });
+    } else {
+        console.log('应用单列布局 - 100%宽度');
+        items.forEach(item => {
+            item.style.cssText = 'flex: 0 0 100% !important; max-width: 100% !important;';
+        });
+    }
+    
+    console.log('布局切换完成:', layoutType);
+}
+
+// 布局切换功能 - 直接操作样式
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('布局切换功能初始化...');
+    
+    const container = document.getElementById('items-container');
+    const radioButtons = document.querySelectorAll('input[name="layout"]');
+    
+    if (!container || radioButtons.length === 0) {
+        console.error('未找到必要的元素');
+        return;
+    }
+    
+    console.log('找到容器和按钮:', container, radioButtons.length);
+    
+    // 直接绑定事件到label标签
+    const labels = document.querySelectorAll('label[for^="layout-"]');
+    labels.forEach(label => {
+        label.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('for');
+            const layoutType = targetId.replace('layout-', '');
+            console.log('点击了标签:', targetId, layoutType);
+            
+            // 等待一下让radio按钮先更新
+            setTimeout(() => {
+                applyLayoutDirect(layoutType);
+            }, 50);
+        });
+    });
+    
+    // 也绑定到radio按钮
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                const layoutType = this.id.replace('layout-', '');
+                console.log('radio按钮变化:', layoutType);
+                applyLayoutDirect(layoutType);
+            }
+        });
+    });
+    
+    // 恢复用户之前的选择
+    const savedLayout = localStorage.getItem('feedLayoutPreference');
+    if (savedLayout && savedLayout !== 'single') {
+        const savedRadio = document.getElementById('layout-' + savedLayout);
+        if (savedRadio) {
+            savedRadio.checked = true;
+            applyLayoutDirect(savedLayout);
+        }
+    }
+    
+    console.log('布局切换功能初始化完成');
+});
+</script>
+
+<script>
+// 全局调试函数
+function testLayout(layoutType) {
+    console.log('手动测试布局:', layoutType);
+    const container = document.getElementById('items-container');
+    if (!container) {
+        console.error('未找到容器元素');
+        return;
+    }
+    
+    const items = container.querySelectorAll('.item-wrapper');
+    console.log('找到条目数量:', items.length);
+    
+    // 重置所有样式
+    container.style.maxWidth = '';
+    container.style.margin = '';
+    container.style.backgroundColor = '';
+    
+    items.forEach(item => {
+        item.style.flex = '';
+        item.style.maxWidth = '';
+        item.style.width = '';
+        item.style.paddingLeft = '';
+        item.style.paddingRight = '';
+        item.style.backgroundColor = '';
+    });
+    
+    // 应用新布局
+    if (layoutType === 'narrow') {
+        console.log('应用紧凑布局');
+        container.style.maxWidth = '60%';
+        container.style.margin = '0 auto';
+        container.style.backgroundColor = '#fffacd'; // 调试背景色
+        items.forEach(item => {
+            item.style.flex = '0 0 100%';
+            item.style.maxWidth = '100%';
+            item.style.backgroundColor = '#f0f8ff';
+        });
+    } else if (layoutType === 'two-column') {
+        console.log('应用双列布局');
+        container.style.backgroundColor = '#fff5ee';
+        items.forEach((item, index) => {
+            item.style.flex = '0 0 50%';
+            item.style.maxWidth = '50%';
+            item.style.paddingLeft = '8px';
+            item.style.paddingRight = '8px';
+            item.style.backgroundColor = index % 2 === 0 ? '#f0fff0' : '#fff0f5';
+        });
+    } else {
+        console.log('应用单列布局');
+        items.forEach(item => {
+            item.style.flex = '0 0 100%';
+            item.style.maxWidth = '100%';
+            item.style.backgroundColor = '#f8f8ff';
+        });
+    }
+    
+    console.log('手动测试完成');
+}
+
+function showDebugInfo() {
+    const container = document.getElementById('items-container');
+    if (!container) {
+        console.error('未找到容器元素');
+        return;
+    }
+    
+    const items = container.querySelectorAll('.item-wrapper');
+    
+    console.log('=== 调试信息 ===');
+    console.log('容器样式:', {
+        maxWidth: container.style.maxWidth,
+        margin: container.style.margin,
+        backgroundColor: container.style.backgroundColor
+    });
+    
+    console.log('条目数量:', items.length);
+    
+    if (items.length > 0) {
+        console.log('第一个条目样式:', {
+            flex: items[0].style.flex,
+            maxWidth: items[0].style.maxWidth,
+            paddingLeft: items[0].style.paddingLeft,
+            paddingRight: items[0].style.paddingRight,
+            backgroundColor: items[0].style.backgroundColor
+        });
+    }
+    
+    // 显示调试按钮
+    const debugControls = document.getElementById('debug-controls');
+    if (debugControls) {
+        debugControls.style.display = debugControls.style.display === 'none' ? 'flex' : 'none';
+        console.log('调试按钮显示状态:', debugControls.style.display);
+    }
+
+    // 测试按钮点击事件
+    const radioButtons = document.querySelectorAll('input[name="layout"]');
+    console.log('找到布局按钮数量:', radioButtons.length);
+    radioButtons.forEach((btn, index) => {
+        console.log(`按钮${index}: id=${btn.id}, checked=${btn.checked}`);
+    });
+}
+
+
+</script>
+{% endblock %}
