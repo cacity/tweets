@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category_data.title }} - 热门榜单{% endblock %}
+
+{% block extra_head %}
+<style>
+.trending-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.trending-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.category-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.ranking-item {
+    background: white;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.ranking-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #1da1f2;
+}
+
+.rank-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.rank-badge.top-3 {
+    background: linear-gradient(45deg, #ffd700, #ffb347);
+}
+
+.item-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #0f1419;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 0.8rem;
+    line-height: 1.4;
+}
+
+.item-title:hover {
+    color: #1da1f2;
+    text-decoration: none;
+}
+
+.item-summary {
+    color: #536471;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.item-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #657786;
+    flex-wrap: wrap;
+}
+
+.score-badge {
+    background: #e1f5fe;
+    color: #0277bd;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 2rem;
+}
+
+.breadcrumb-item a {
+    color: #1da1f2;
+    text-decoration: none;
+}
+
+.category-nav {
+    margin-bottom: 2rem;
+}
+
+.category-btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    background: #f7f9fa;
+    color: #14171a;
+    text-decoration: none;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.category-btn:hover {
+    background: #1da1f2;
+    color: white;
+    text-decoration: none;
+}
+
+.category-btn.active {
+    background: #1da1f2;
+    color: white;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #657786;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #aab8c2;
+}
+
+@media (max-width: 768px) {
+    .trending-title {
+        font-size: 2rem;
+    }
+    
+    .ranking-item {
+        padding: 1rem;
+    }
+    
+    .item-meta {
+        font-size: 0.8rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="trending-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-12">
+                <div class="d-flex align-items-center">
+                    <div class="category-icon me-3">
+                        {% if category == 'ai' %}
+                            <i class="bi bi-robot"></i>
+                        {% elif category == 'tech' %}
+                            <i class="bi bi-cpu"></i>
+                        {% elif category == 'business' %}
+                            <i class="bi bi-briefcase"></i>
+                        {% elif category == 'product' %}
+                            <i class="bi bi-box"></i>
+                        {% else %}
+                            <i class="bi bi-collection"></i>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h1 class="trending-title mb-1">{{ category_data.title }}</h1>
+                        <p class="mb-0 opacity-75">{{ category_data.description }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('index') }}">
+                    <i class="bi bi-house me-1"></i>首页
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('trending') }}">热门榜单</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {% if category == 'ai' %}
+                    人工智能
+                {% elif category == 'tech' %}
+                    科技资讯
+                {% elif category == 'business' %}
+                    商业资讯
+                {% elif category == 'product' %}
+                    产品设计
+                {% else %}
+                    {{ category }}
+                {% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <!-- 分类导航 -->
+    <div class="category-nav">
+        <h6 class="mb-3">📂 其他分类</h6>
+        <a href="{{ url_for('trending') }}" class="category-btn">
+            <i class="bi bi-house me-1"></i>综合榜单
+        </a>
+        {% for cat, data in result.categories.items() %}
+        <a href="{{ url_for('trending_category', category=cat) }}" 
+           class="category-btn {% if cat == category %}active{% endif %}">
+            {% if cat == 'ai' %}
+                <i class="bi bi-robot me-1"></i>人工智能
+            {% elif cat == 'tech' %}
+                <i class="bi bi-cpu me-1"></i>科技资讯
+            {% elif cat == 'business' %}
+                <i class="bi bi-briefcase me-1"></i>商业资讯
+            {% elif cat == 'product' %}
+                <i class="bi bi-box me-1"></i>产品设计
+            {% else %}
+                <i class="bi bi-collection me-1"></i>{{ cat }}
+            {% endif %}
+            ({{ data.items|length }})
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- 分类榜单内容 -->
+    <div class="row">
+        <div class="col-12">
+            {% if category_data.items %}
+                {% for item in category_data.items %}
+                <div class="ranking-item">
+                    <div class="rank-badge {% if item.rank <= 3 %}top-3{% endif %}">
+                        {{ item.rank }}
+                    </div>
+                    
+                    <a href="{{ item.link }}" target="_blank" class="item-title">
+                        {{ item.title }}
+                    </a>
+                    
+                    {% if item.summary %}
+                    <div class="item-summary">
+                        {{ item.summary }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="item-meta">
+                        <span class="score-badge">
+                            评分: {{ "%.1f" | format(item.score) }}
+                        </span>
+                        
+                        <a href="{{ item.link }}" target="_blank" class="text-primary">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>查看原文
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h4>该分类暂无内容</h4>
+                    <p>请查看其他分类或返回综合榜单</p>
+                    <a href="{{ url_for('trending') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left me-1"></i>返回综合榜单
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 返回按钮 -->
+    <div class="text-center mt-4 mb-5">
+        <a href="{{ url_for('trending') }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-2"></i>返回综合榜单
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 页面交互增强
+document.addEventListener('DOMContentLoaded', function() {
+    // 添加平滑滚动效果
+    const rankingItems = document.querySelectorAll('.ranking-item');
+    
+    rankingItems.forEach((item, index) => {
+        // 添加延迟动画效果
+        setTimeout(() => {
+            item.style.opacity = '0';
+            item.style.transform = 'translateY(20px)';
+            item.style.transition = 'all 0.5s ease';
+            
+            setTimeout(() => {
+                item.style.opacity = '1';
+                item.style.transform = 'translateY(0)';
+            }, 100);
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}

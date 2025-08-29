@@ -20,6 +20,7 @@ echo 启动Web应用...
 echo 应用将在 http://127.0.0.1:5000 运行
 echo 按 Ctrl+C 停止服务器
 echo.
+cd src
 python app.py
 
 pause
